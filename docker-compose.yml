@@ -1,69 +1,49 @@
-version: "3.9"
-
 services:
-  frontend:
-    build:
-      context: julianlechner/ecommerce-frontend:latest
-      args:
-        - REACT_APP_BACKEND_URL=http://localhost/api
-        - REACT_APP_AWS_S3_BASE_URL = https://jlechner-ecommerce.s3.amazonaws.com
-    ports:
-      - "3000:80"
-    depends_on:
-      - backend
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
-    env_file:
-      - ./frontend/.env.docker
-
-  backend:
-    image: julianlechner/ecommerce-backend:latest
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
-    labels:
-      com.centurylinklabs.watchtower.enable: "true"
-    env_file:
-      - ./backend/.env.docker
-    volumes:
-      - "~/apps/backend:/var/lib/backend/data"
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17
+    container_name: ecommerce-db
+
+    environment:
+      POSTGRES_DB: ecommerce
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+
     ports:
       - "5432:5432"
-    volumes:
-      - "~/apps/postgres:/var/lib/postgresql/data"
-    env_file:
-      - ./.env
 
-  pgadmin:
-    image: dpage/pgadmin4
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+
+    container_name: ecommerce-backend
+
     depends_on:
       - postgres
+
     ports:
-      - "5050:80"
-    env_file:
-      - ./.env.docker
-    volumes:
-      - "~/apps/pgadmin:/var/lib/pgadmin"
+      - "8000:8000"
 
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower
-    command: --interval 30 --label-enable --cleanup
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ecommerce
 
-  nginx:
-    depends_on:
-      - frontend
-      - backend
-    restart: always
+  frontend:
     build:
-      dockerfile: Dockerfile
-      context: ./nginx
+      context: ./frontend
+
+    container_name: ecommerce-frontend
+
+    depends_on:
+      - backend
+
     ports:
-      - "80:80" # Exposing on port 80 for host
+      - "80:80"
+
+volumes:
+  postgres_data:
